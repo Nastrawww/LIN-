@@ -295,10 +295,14 @@ int main ()
 Since the master will be transmitting the data continuously, we would want to keep the transmitter mode enabled. This is why the CS pin is set to HIGH.
 
 We will send the TxData buffer via the UART, so we need to prepare it first.
-First store the sync bytes (0x55) to the buffer.
-The next element will contain the PID. Here I am using the ID 0x34, which will be then converted to the PID.
-Then copy the data bytes to the buffer. I am storing 8 data bytes with the values starting from 0 to 7. The data bytes are just the values of the indx variable, which will keep incrementing.
-The last element of the buffer will contain the checksum.
+**First store the sync bytes (0x55) to the buffer.**
+
+**The next element will contain the PID. Here I am using the ID 0x34, which will be then converted to the PID.**
+
+**Then copy the data bytes to the buffer. I am storing 8 data bytes with the values starting from 0 to 7. The data bytes are just the values of the indx variable, which will keep incrementing.**
+
+**The last element of the buffer will contain the checksum.**
+
 I am using the Lin version 2.1, so the PID must be included in the checksum.
 For the lin version 1.x, the PID is not needed and hence you can just pass the value 0 for the PID.
 After preparing the TxData buffer, we will send it via the UART. The function HAL_LIN_SendBreak is used to send the break field. After sending the break field, we will send the TxData buffer.
