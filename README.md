@@ -1,4 +1,8 @@
-**Part 1: STM32 F407 is treatesd as a master**
+**
+Part 1: STM32 F407 is treatesd as a master
+**
+
+
 STM32 as the Lin Master || Configure & Send Data
 This tutorial is the PART1 in the small series covering the Lin protocol. In today’s tutorial we will configure the STM32 as the lin master, prepare the the data to be transmitted over the linbus and send the data. There will be no slave involved and the data will be monitored via the logic analyzer.
 
