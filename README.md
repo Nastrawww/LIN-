@@ -1,3 +1,4 @@
+**Part 1: STM32 F407 is treatesd as a master**
 STM32 as the Lin Master || Configure & Send Data
 This tutorial is the PART1 in the small series covering the Lin protocol. In today’s tutorial we will configure the STM32 as the lin master, prepare the the data to be transmitted over the linbus and send the data. There will be no slave involved and the data will be monitored via the logic analyzer.
 
@@ -205,7 +206,93 @@ In the end, the master sends the checksum. This checksum value is correct otherw
 So we have received the complete Lin frame at the output. This verifies that our program was correct and we can proceed with it.
 
 
+ In this series we will cover different ways of transmitting and receiving data over the UART protocol. We will also see different UART modes available in the STM32 microcontrollers and how to use them.
 
+This tutorial is the PART2 in the small series covering the Lin protocol. In today’s tutorial we will see how to connect a lin transceiver with the MCU. We will also use another MCU as the slave which will be connected to another lin transceiver. The data transfer will take place between the transceivers and it will be read by the slave MCU.
+
+CP2004 The Lin Transceiver
+I am going to use the microchip’s MCP2004 as the Lin transceiver. There is no specific reason to choose this IC, it was easily available so I am using it. You can also use MCP2003 as it is mostly similar to the MCP2004. Below is the pinout of the MCP2004.
+<img width="551" height="296" alt="image" src="https://github.com/user-attachments/assets/10c9830a-a506-4fac-a2a1-b4fd5f87e5df" />
+
+**RXD (RECEIVE DATA OUTPUT)** is an Open-Drain (OD) output This pin must be connected to the RX pin of the UART.
+**CS (CHIP SELECT)** is used to enable or disable the transmitter mode of the transceiver. To enable the transmitter, this pin must be set to HIGH and to disable the transmitter, the pin must be LOW. We will connect this pin to the GPIO of the MCU.
+**FAULT/TXE** pin is bidirectional and allows disabling of the transmitter, as well as Fault reporting related to disabling the transmitter. We will leave this pin disconnected.
+**TXD** (TRANSMIT DATA INPUT) pin has an internal pull-up. The LIN pin is low (dominant) when TXD is low and high (recessive) when TXD is high. This pin must be connected to the TX pin of the UART.
+**VSS** is the supply ground pin. We will connect it to the ground of the 12v supply.
+**LBUS** is the bidirectional LIN Bus pin (LBUS) and is controlled by the TXD input. This pin will be connected to the LBUS of the another transceiver.
+**VBB** is the Battery Positive Supply Voltage pin. We will connect it to the +12V supply.
+**VREN** (VOLTAGE REGULATOR ENABLE OUTPUT) is the External Voltage Regulator Enable pin. We will leave this pin disconnected.
+
+The Master
+CubeMX Configuration
+Below is the image showing the configuration of the UART in the Lin mode.
+<img width="611" height="603" alt="image" src="https://github.com/user-attachments/assets/a9816d6f-dfbc-4f47-9cf8-2781901d51a9" />
+The USART1 is configured in the Lin Mode. The Lin protocol supports the transfer up to the baud rate of 200 Kbps, but here I am using 9600 bps. The data size is set to 8 bits with no parity and 1 stop bit.
+
+We also need to set a GPIO pin as the output. This will be used as the CS pin for the transceiver.
+<img width="468" height="402" alt="image" src="https://github.com/user-attachments/assets/f165e33b-b65c-49e7-a858-3e8551c19819" />
+Here I am setting the pin PC7 as the output pin.
+
+Below is the code in the main function.
+
+int indx = 0;
+
+int main ()
+{
+...
+HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, 1); // Pull the cs pin HIGH to enable transmitter
+while (1)
+{
+
+TxData[0] = 0x55; // sync field
+TxData[1] = pid_Calc(0x34);
+for (int i=0; i<8; i++)
+{
+TxData[i+2] = indx++;
+if (indx>255) indx = 0;
+}
+TxData[10] = checksum_Calc(TxData[1], TxData+2, 8); //lin 2.1 includes PID, for line v1 use PID =0
+
+HAL_LIN_SendBreak(&huart1);
+HAL_UART_Transmit(&huart1, TxData, 11, 1000);
+HAL_Delay(1000);
+}
+
+}
+int indx = 0;
+
+int main ()
+{
+  ...
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, 1);  // Pull the cs pin HIGH to enable transmitter
+  while (1)
+  {
+
+	  TxData[0] = 0x55;  // sync field
+	  TxData[1] = pid_Calc(0x34);
+	  for (int i=0; i<8; i++)
+	  {
+		  TxData[i+2] = indx++;
+                  if (indx>255) indx = 0;
+	  }
+	  TxData[10] = checksum_Calc(TxData[1], TxData+2, 8);   //lin 2.1 includes PID, for line v1 use PID =0
+
+	  HAL_LIN_SendBreak(&huart1);
+	  HAL_UART_Transmit(&huart1, TxData, 11, 1000);
+	  HAL_Delay(1000);
+  }
+
+}
+Since the master will be transmitting the data continuously, we would want to keep the transmitter mode enabled. This is why the CS pin is set to HIGH.
+
+We will send the TxData buffer via the UART, so we need to prepare it first.
+First store the sync bytes (0x55) to the buffer.
+The next element will contain the PID. Here I am using the ID 0x34, which will be then converted to the PID.
+Then copy the data bytes to the buffer. I am storing 8 data bytes with the values starting from 0 to 7. The data bytes are just the values of the indx variable, which will keep incrementing.
+The last element of the buffer will contain the checksum.
+I am using the Lin version 2.1, so the PID must be included in the checksum.
+For the lin version 1.x, the PID is not needed and hence you can just pass the value 0 for the PID.
+After preparing the TxData buffer, we will send it via the UART. The function HAL_LIN_SendBreak is used to send the break field. After sending the break field, we will send the TxData buffer.
 
 
 
