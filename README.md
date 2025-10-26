@@ -43,6 +43,191 @@ The last field of a frame is the checksum. The checksum contains the inverted ei
 A typical example of checksum calculation is shown below.
 <img width="1094" height="610" alt="image" src="https://github.com/user-attachments/assets/af525a6f-29cc-42cf-9a05-e9e2bbb75922" />
 
+CubeMX Configuration
+Below is the image showing the configuration of the UART in the Lin mode.
+<img width="611" height="603" alt="image" src="https://github.com/user-attachments/assets/26a5daa9-d300-434b-b6d4-82c878b3f537" />
+The USART1 is configured in the Lin Mode. The Lin protocol supports the transfer up to the baud rate of 200 Kbps, but here I am using 9600 bps. The data size is set to 8 bits with no parity and 1 stop bit.
+
+Below the image shows the Logic Analyser is connected to the USART1 TX pin (PA9).
+<img width="1658" height="902" alt="image" src="https://github.com/user-attachments/assets/dbbeffec-e877-46f8-b7b9-75e935063364" />
+Below is the Lin frame. We will send the data according to it.
+<img width="990" height="391" alt="image" src="https://github.com/user-attachments/assets/87432d3a-587d-464f-9ea4-d307d27e1a10" />
+The Break field will be sent by using the HAL function and the Sync field has the fixed value 0x55. We will prepare the Protected ID first and then the checksum.
+
+Protected ID
+I have already mentioned that the PID consists of two sub-fields: the frame identifier and the parity. Bits 0 to 5 are the frame identifier and bits 6 and 7 are the parity. The parity is calculated on the frame identifier bits as shown below:
+P0 = ID0 ⊕ ID1 ⊕ ID2 ⊕ ID4
+P1 = ¬(ID1 ⊕ ID3 ⊕ ID4 ⊕ ID5)
+uint8_t pid_Calc (uint8_t ID)
+{
+if (ID > 0x3F) Error_Handler();
+uint8_t IDBuf[6];
+for (int i=0; i<6; i++)
+{
+IDBuf[i] = (ID>>i)&0x01;
+}
+uint8_t P0 = (IDBuf[0]^IDBuf[1]^IDBuf[2]^IDBuf[4])&0x01;
+uint8_t P1 = ~((IDBuf[1]^IDBuf[3]^IDBuf[4]^IDBuf[5])&0x01);
+ID = ID | (P0<<6) | (P1<<7);
+return ID;
+}
+uint8_t pid_Calc (uint8_t ID)
+{
+	if (ID > 0x3F) Error_Handler();
+	uint8_t IDBuf[6];
+	for (int i=0; i<6; i++)
+	{
+		IDBuf[i] = (ID>>i)&0x01;
+	}
+	uint8_t P0 = (IDBuf[0]^IDBuf[1]^IDBuf[2]^IDBuf[4])&0x01;
+	uint8_t P1 = ~((IDBuf[1]^IDBuf[3]^IDBuf[4]^IDBuf[5])&0x01);
+	ID = ID | (P0<<6) | (P1<<7);
+	return ID;
+}
+The function pid_Calc takes the actual ID as the parameter. We have only 6 bits for the ID, so if the ID is greater than 0x3F (63), we will call the error handler.
+
+Here we will first extract each bit from the 6 bit ID and store them in the IDBuf.
+The parity bit P0 will be calculated by performing the XOR operation between the ID 0 1 2 and 4.
+Similarly, to calculate the parity bit P1, we will first perform the XOR operation between the ID 1 3 4 and 5, and then negate the value obtained.
+Now we will add the parity bits with the actual ID and store the final value in the ID variable itself.
+The value will then be returned.
+Checksum
+The checksum contains the inverted eight bit sum with carry over all data bytes or all data bytes and the protected identifier. Below is the method to calculate the Enhanced checksum.
+
+uint8_t checksum_Calc (uint8_t PID, uint8_t *data, int size)
+{
+uint8_t buffer[size+2];
+uint16_t sum = 0;
+buffer[0] = PID;
+for (int i=0; i<size; i++)
+{
+buffer[i+1] = data[i];
+}
+
+for (int i=0; i<size+1; i++)
+{
+sum += buffer[i];
+if (sum>0xff) sum = sum-0xFF;
+}
+
+sum = 0xFF-sum;
+return sum;
+}
+uint8_t checksum_Calc (uint8_t PID, uint8_t *data, int size)
+{
+	uint8_t buffer[size+2];
+	uint16_t sum = 0;
+	buffer[0] = PID;
+	for (int i=0; i<size; i++)
+	{
+		buffer[i+1] = data[i];
+	}
+
+	for (int i=0; i<size+1; i++)
+	{
+		sum += buffer[i];
+		if (sum>0xff) sum = sum-0xFF;
+	}
+
+	sum = 0xFF-sum;
+	return sum;
+}
+The function checksum_Calc takes the following parameters:
+
+@PID the protected ID
+@*data the pointer to the actual data bytes
+@size the size of the actual data
+Since we need to add all the data bytes and the PID, we need to first store them in a single buffer. The buffer array is defined to do the same. The first element of the buffer array holds the PID value and the rest of them will store the data bytes.
+
+Once we have all the data at once place, we will start adding it. The variable sum is 16 bit in size and it stores the result of the addition. Whenever the value of the sum is higher than 0xFF (255), we will subtract 0xFF from it.
+
+After all the calculation is over, the sum variable will have a 8 bit result value in it. Finally we need to invert the result, so subtract the sum from 0xFF (255). This value will be returned in the end.
+
+The main Function
+Below is the code in the main function.
+
+int main ()
+{
+...
+...
+while (1)
+{
+
+TxData[0] = 0x55; // sync field
+TxData[1] = pid_Calc(0x34);
+for (int i=0; i<8; i++)
+{
+TxData[i+2] = i;
+}
+TxData[10] = checksum_Calc(TxData[1], TxData+2, 8); //lin 2.1 includes PID, for line v1 use PID =0
+
+HAL_LIN_SendBreak(&huart1);
+HAL_UART_Transmit(&huart1, TxData, 11, 1000);
+HAL_Delay(1000);
+}
+
+}
+int main ()
+{
+  ...
+  ...
+  while (1)
+  {
+
+	  TxData[0] = 0x55;  // sync field
+	  TxData[1] = pid_Calc(0x34);
+	  for (int i=0; i<8; i++)
+	  {
+		  TxData[i+2] = i;
+	  }
+	  TxData[10] = checksum_Calc(TxData[1], TxData+2, 8);   //lin 2.1 includes PID, for line v1 use PID =0
+
+	  HAL_LIN_SendBreak(&huart1);
+	  HAL_UART_Transmit(&huart1, TxData, 11, 1000);
+	  HAL_Delay(1000);
+  }
+
+}
+We will send the TxData buffer via the UART, so we need to prepare it first.
+
+First store the sync bytes (0x55) to the buffer.
+The next element will contain the PID. Here I am using the ID 0x34, which will be then converted to the PID.
+Then copy the data bytes to the buffer. I am storing 8 data bytes with the values starting from 0 to 7.
+The last element of the buffer will contain the checksum.
+I am using the Lin version 2.1, so the PID must be included in the checksum.
+For the lin version 1.x, the PID is not needed and hence you can just pass the value 0 for the PID.
+After preparing the TxData buffer, we will send it via the UART. The function HAL_LIN_SendBreak is used to send the break field. After sending the break field, we will send the TxData buffer.
+
+Result
+Below the image shows the frame captured on the logic analyser
+<img width="1239" height="249" alt="image" src="https://github.com/user-attachments/assets/4dd985cc-be5b-4fc4-85ec-cccec9435ad9" />
+ou can see the complete Lin frame in the image above.
+
+The master sends the break field.
+The sync field is sent next with the byte value of 0x55.
+The third field is the PID. The MCU sends the PID 0xB4, but the ID 0x34 is extracted from it by the Lin analyzer.
+The master then sends the 8 bytes of data. the data ranges from 0x00 to 0x07.
+In the end, the master sends the checksum. This checksum value is correct otherwise the analyzer would have reported it as a wrong value.
+So we have received the complete Lin frame at the output. This verifies that our program was correct and we can proceed with it.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
