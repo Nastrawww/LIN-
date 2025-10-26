@@ -37,6 +37,8 @@ A typical example of checksum calculation is shown below.
 **CubeMX Configuration**
 Below is the image showing the configuration of the UART in the Lin mode.
 <img width="611" height="603" alt="image" src="https://github.com/user-attachments/assets/26a5daa9-d300-434b-b6d4-82c878b3f537" />
+
+
 The USART1 is configured in the Lin Mode. The Lin protocol supports the transfer up to the baud rate of 200 Kbps, but here I am using 9600 bps. The data size is set to 8 bits with no parity and 1 stop bit.
 
 Below the image shows the Logic Analyser is connected to the USART1 TX pin (PA9).
