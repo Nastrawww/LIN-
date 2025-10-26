@@ -307,10 +307,130 @@ I am using the Lin version 2.1, so the PID must be included in the checksum.
 For the lin version 1.x, the PID is not needed and hence you can just pass the value 0 for the PID.
 After preparing the TxData buffer, we will send it via the UART. The function HAL_LIN_SendBreak is used to send the break field. After sending the break field, we will send the TxData buffer.
 
+**Part:2 The SLAVE**
+I am going to use the STM32F103C8T6 as the slave MCU. Below is the configuration of the slave MCU.
+
+CubeMX Configuration
+Below is the image showing the cubeMX configuration of the slave MCU.
+
+<img width="1790" height="662" alt="image" src="https://github.com/user-attachments/assets/f98437cb-f5a8-4703-831b-113fe3c5e9cf" />
+I am using the USART3 on the STM32F103C8T6. The USART is configured in the Lin Mode with the baud rate of 9600 bps, 8 data bits with 1 stop bit and no parity. This is basically the same configuration as we did in the master MCU.
+
+I have also enabled the Global interrupt for the USART3 as I am going to receive the data in the interrupt mode.
+
+Also make sure to enable the pull up for the RX pin in the GPIO setting. This is necessary or else the data will not be received. If your MCu does not support the internal pullup, connect an external pull up on this pin.
+
+We also need to set a GPIO pin as the output. This will be used as the CS pin for the transceiver.
+
+<img width="729" height="421" alt="image" src="https://github.com/user-attachments/assets/56a7005c-f2d7-4f19-8f07-c70f9acc4046" />
+
+Here I am using the pin PB1 as the CS pin for the Transceiver IC.
+
+The Code
+We will start with receiving the data via the UART in the interrupt mode.
+
+HAL_UARTEx_ReceiveToIdle_IT(&huart3, RxData, 20);
+
+Here I am using the function receive to idle in the interrupt mode. So when all the 20 bytes has been received, or an idle line is detected before that, an interrupt will trigger and the RX Event Callback will be called.
+
+We will process the received data inside this callback. Below is the image showing the data received by the slave in a single Lin frame.
+<img width="643" height="224" alt="image" src="https://github.com/user-attachments/assets/95cc5bbb-af70-4165-853b-c3375ab3d3fa" />
+
+The received bytes contains the following:
+
+1 byte of the break field (0x00).
+1 byte of the Sync field (0x55).
+1 byte of the protected ID.
+1 – 8 bytes of actual data.
+1 byte of the checksum.
+Basically other than the actual data bytes, we have 4 extra bytes containing other information. Since the master can send any number of actual data bytes between 1 to 8 bytes, we must have some means in the slave device to figure out how many actual data bytes were sent by the master.
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+numDataBytes = Size - 4;
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+	numDataBytes = Size - 4;
+The variable numDataBytes will be used to track the actual number of data bytes received. The Size parameter of the callback contains the total bytes received and we have 4 additional bytes other than the data bytes. To extract the actual number of data bytes, we can simply use numDataBytes = Size – 4.
+
+uint8_t checksum = checksum_Calc(RxData[2], RxData+3, numDataBytes);
+if (checksum != RxData[Size-1])
+{
+isDataValid = 0;
+// call error handler
+}
+else isDataValid = 1;
+	uint8_t checksum = checksum_Calc(RxData[2], RxData+3, numDataBytes);
+	if (checksum != RxData[Size-1])
+	{
+		isDataValid = 0;
+		// call error handler
+	}
+	else isDataValid = 1;
+We can check the validity of the received data by calculating the checksum. The actual data starts from the offset of 3, and the total number of data bytes has already been calculated.
+
+We will verify this checksum with the received checksum. If it is same, that means the received data is valid and we can process it. Here we will set the variable isDataValid to 1 so that we can later process the data in the while loop.
+
+ID = RxData[2]&0x3F;
+	ID = RxData[2]&0x3F;
+We can also extract the actual ID from the protected ID. We know that the protected ID is made up of 6 bits of the actual ID and the 2 parity bits (P0 & P1). So to extract the actual ID from the PID, we can simply extract the first 6 bits from it.
+
+HAL_UARTEx_ReceiveToIdle_IT(&huart3, RxData, 20);
+}
+	HAL_UARTEx_ReceiveToIdle_IT(&huart3, RxData, 20);
+}
+Finally we will call the receive to idle function again, so that we have the continuous reception of data.
+
+We will process the data in the while loop.
+
+while (1)
+{
+if (isDataValid == 1)
+{
+for (int i=0; i<numDataBytes; i++)
+{
+Data[i] = RxData[i+3];
+}
+isDataValid = 0;
+}
+}
+  while (1)
+  {
+	  if (isDataValid == 1)
+	  {
+		  for (int i=0; i<numDataBytes; i++)
+		  {
+			  Data[i] = RxData[i+3];
+		  }
+		  isDataValid = 0;
+	  }
+  }
+Here we will check if the isDataValid variable is set to 1. If it is, then we will copy the received data from the RX buffer to the Data buffer. We can process this data buffer in any way we want.
+
+Also set the isDataValid variable to 0, so that this loop does not run again.
 
 
 
 
+**Connection
+Below is the image showing the connection between the MCUs and their respective transceivers.**
+<img width="2890" height="849" alt="image" src="https://github.com/user-attachments/assets/cedaf290-a72d-474b-ad20-00939e67af9c" />
+The UART TX pins are connected to the transceiver TX pins and the UART RX pins are connected to the transceiver RX pins. The pin 2 of the transceiver is the CS pin and it is connected to the respective GPIO on the MCU.
+
+The Lin bus of the transceivers are connected together as it will transmit and receive the signal.
+
+The transceivers are powered using 12V from the battery.
+Below the images shows the data received by the slave MCU and the actual data extracted from the received data.
+<img width="513" height="164" alt="image" src="https://github.com/user-attachments/assets/19f4ee62-dc4d-4f04-af32-45366038757b" />
+
+The slave received a total of 12 bytes of data. The received data contains the following:
+
+The break field 0x00.
+The sync field 0x55.
+The PID 0xB4.
+8 Data bytes.
+The checksum byte.
+The Data buffer contains the 8 data bytes extracted from the RX buffer.
 
 
 
