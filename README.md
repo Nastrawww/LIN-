@@ -217,12 +217,19 @@ I am going to use the microchip’s MCP2004 as the Lin transceiver. There is no 
 <img width="551" height="296" alt="image" src="https://github.com/user-attachments/assets/10c9830a-a506-4fac-a2a1-b4fd5f87e5df" />
 
 **RXD (RECEIVE DATA OUTPUT)** is an Open-Drain (OD) output This pin must be connected to the RX pin of the UART.
+
 **CS (CHIP SELECT)** is used to enable or disable the transmitter mode of the transceiver. To enable the transmitter, this pin must be set to HIGH and to disable the transmitter, the pin must be LOW. We will connect this pin to the GPIO of the MCU.
+
 **FAULT/TXE** pin is bidirectional and allows disabling of the transmitter, as well as Fault reporting related to disabling the transmitter. We will leave this pin disconnected.
+
 **TXD** (TRANSMIT DATA INPUT) pin has an internal pull-up. The LIN pin is low (dominant) when TXD is low and high (recessive) when TXD is high. This pin must be connected to the TX pin of the UART.
+
 **VSS** is the supply ground pin. We will connect it to the ground of the 12v supply.
+
 **LBUS** is the bidirectional LIN Bus pin (LBUS) and is controlled by the TXD input. This pin will be connected to the LBUS of the another transceiver.
+
 **VBB** is the Battery Positive Supply Voltage pin. We will connect it to the +12V supply.
+
 **VREN** (VOLTAGE REGULATOR ENABLE OUTPUT) is the External Voltage Regulator Enable pin. We will leave this pin disconnected.
 
 The Master
