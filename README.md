@@ -311,7 +311,7 @@ After preparing the TxData buffer, we will send it via the UART. The function HA
 
 
  **Part:2 The SLAVE**
-            I am going to use the STM32F103C8T6 as the slave MCU. Below is the configuration of the slave MCU.
+**I am going to use the STM32F103C8T6 as the slave MCU. Below is the configuration of the slave MCU**
 
 
 
