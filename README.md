@@ -38,13 +38,12 @@ P1 = ¬(ID1 ⊕ ID3 ⊕ ID4 ⊕ ID5)
 Data
 A frame carries between one and eight bytes of data. A data byte is transmitted as part of a byte field. For data entities longer than one byte, the entity LSB is contained in the byte sent first and the entity MSB in the byte sent last (little-endian).
 <img width="996" height="108" alt="image" src="https://github.com/user-attachments/assets/b2cad0bb-2e1f-4a72-af4a-ae6e41e5db39" />
-
-
 Checksum
 The last field of a frame is the checksum. The checksum contains the inverted eight bit sum with carry over all data bytes or all data bytes and the protected identifier. Checksum calculation over the data bytes and the protected identifier byte is called enhanced checksum and it is used for communication with LIN 2.x slaves. Use of classic or enhanced checksum is managed by the master node and it is determined per frame identifier; classic in communication with LIN 1.x slave nodes and enhanced in communication with LIN 2.x slave nodes.
+A typical example of checksum calculation is shown below.
 <img width="1094" height="610" alt="image" src="https://github.com/user-attachments/assets/af525a6f-29cc-42cf-9a05-e9e2bbb75922" />
 
-A typical example of checksum calculation is shown below.
+
 
 
 
