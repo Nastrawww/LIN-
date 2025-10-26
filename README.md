@@ -307,9 +307,15 @@ I am using the Lin version 2.1, so the PID must be included in the checksum.
 For the lin version 1.x, the PID is not needed and hence you can just pass the value 0 for the PID.
 After preparing the TxData buffer, we will send it via the UART. The function HAL_LIN_SendBreak is used to send the break field. After sending the break field, we will send the TxData buffer.
 
-**Part:2 The SLAVE**
-I am going to use the STM32F103C8T6 as the slave MCU. Below is the configuration of the slave MCU.
 
+
+
+ **Part:2 The SLAVE**
+            I am going to use the STM32F103C8T6 as the slave MCU. Below is the configuration of the slave MCU.
+
+
+
+  
 CubeMX Configuration
 Below is the image showing the cubeMX configuration of the slave MCU.
 
