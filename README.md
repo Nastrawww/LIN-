@@ -1,6 +1,4 @@
-**
-Part 1: STM32 F407 is treatesd as a master
-**
+**Part 1: STM32 F407 is treatesd as a master**
 
 
 STM32 as the Lin Master || Configure & Send Data
